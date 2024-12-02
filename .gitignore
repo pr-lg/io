@@ -1,3 +1,5 @@
 node_modules
 events.log
+client-events.log
 package-lock.json
+.env

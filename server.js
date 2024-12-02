@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
@@ -176,8 +177,10 @@ io.on('connection', (socket) => {
     });
 });
 
-// Запускаем сервер на порту 3000
-const PORT = 3000;
-http.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+// Запускаем сервер
+const HOST = process.env.WEBSOCKET_HOST || 'localhost';
+const PORT = process.env.WEBSOCKET_PORT || 3000;
+
+http.listen(PORT, HOST, () => {
+    console.log(`Server is running on http://${HOST}:${PORT}`);
 });
