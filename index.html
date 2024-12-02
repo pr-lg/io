@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO Test Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .chat-section {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        .logs-section {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        #messages {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            height: 300px;
+            overflow-y: auto;
+            background: white;
+        }
+        #logsTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background: white;
+        }
+        #logsTable th, #logsTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+        #logsTable th {
+            background-color: #f5f5f5;
+            position: sticky;
+            top: 0;
+        }
+        #logsTableContainer {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+        }
+        input[type="text"] {
+            padding: 5px;
+            width: 70%;
+        }
+        button {
+            padding: 5px 15px;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .status {
+            padding: 5px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        .connected {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .disconnected {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .reconnecting {
+            background-color: #fcf8e3;
+            color: #8a6d3b;
+        }
+        #connectionInfo {
+            margin: 10px 0;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .refresh-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .refresh-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-section">
+            <h2>Socket.IO Test Client</h2>
+            <div id="status" class="status disconnected">Disconnected</div>
+            <div id="connectionInfo"></div>
+            <div>
+                <input type="text" id="messageInput" placeholder="Enter message...">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+            <div id="messages"></div>
+        </div>
+        
+        <div class="logs-section">
+            <h2>Event Logs</h2>
+            <button onclick="refreshLogs()" class="refresh-button">Refresh Logs</button>
+            <div id="logsTableContainer">
+                <table id="logsTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Event</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Генерируем уникальный ID клиента или используем сохраненный
+        const clientId = localStorage.getItem('clientId') || 'client_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('clientId', clientId);
+
+        // Инициализация Socket.IO с настройками переподключения
+        const socket = io({
+            query: { clientId },
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000
+        });
+
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const statusDiv = document.getElementById('status');
+        const connectionInfoDiv = document.getElementById('connectionInfo');
+
+        function appendMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            messagesDiv.appendChild(messageElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateStatus(status, additionalInfo = '') {
+            let className = 'disconnected';
+            switch (status) {
+                case 'connected':
+                    className = 'connected';
+                    break;
+                case 'disconnected':
+                    className = 'disconnected';
+                    break;
+                case 'reconnecting':
+                    className = 'reconnecting';
+                    break;
+            }
+            statusDiv.textContent = status.charAt(0).toUpperCase() + status.slice(1) + additionalInfo;
+            statusDiv.className = `status ${className}`;
+        }
+
+        function updateConnectionInfo(info) {
+            connectionInfoDiv.innerHTML = `
+                Client ID: ${info.clientId}<br>
+                Reconnect Count: ${info.reconnectCount}<br>
+                Last Server Time: ${info.serverTime}
+            `;
+        }
+
+        // Обработка событий подключения
+        socket.on('connect', () => {
+            updateStatus('connected');
+            appendMessage('Connected to server');
+            messageInput.disabled = false;
+        });
+
+        socket.on('disconnect', (reason) => {
+            updateStatus('disconnected', ` (${reason})`);
+            appendMessage(`Disconnected from server: ${reason}`);
+            messageInput.disabled = true;
+        });
+
+        socket.on('reconnect_attempt', (attemptNumber) => {
+            updateStatus('reconnecting', ` (attempt ${attemptNumber})`);
+            appendMessage(`Attempting to reconnect (attempt ${attemptNumber})`);
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+            updateStatus('connected');
+            appendMessage(`Reconnected after ${attemptNumber} attempts`);
+            messageInput.disabled = false;
+        });
+
+        socket.on('reconnect_error', (error) => {
+            appendMessage(`Reconnection error: ${error.message}`);
+        });
+
+        socket.on('reconnect_failed', () => {
+            updateStatus('disconnected', ' (failed to reconnect)');
+            appendMessage('Failed to reconnect to server');
+            messageInput.disabled = true;
+        });
+
+        // Получение информации о подключении
+        socket.on('connectionInfo', (info) => {
+            updateConnectionInfo(info);
+        });
+
+        socket.on('message', (message) => {
+            appendMessage(`Received: ${message}`);
+        });
+
+        socket.on('error', (error) => {
+            appendMessage(`Error: ${error.message}`);
+        });
+
+        function sendMessage() {
+            const message = messageInput.value;
+            if (message && socket.connected) {
+                socket.emit('message', message);
+                appendMessage(`Sent: ${message}`);
+                messageInput.value = '';
+            }
+        }
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Начальное состояние
+        messageInput.disabled = true;
+
+        // Функция для форматирования времени
+        function formatTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        // Функция для форматирования данных лога
+        function formatLogData(data) {
+            const excludeKeys = ['timestamp', 'event'];
+            return Object.entries(data)
+                .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+                .join('<br>');
+        }
+
+        // Функция для обновления таблицы логов
+        async function refreshLogs() {
+            try {
+                const response = await fetch('/api/logs');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.details || 'Failed to fetch logs');
+                }
+                
+                const logs = await response.json();
+                const tbody = document.querySelector('#logsTable tbody');
+                tbody.innerHTML = '';
+
+                if (logs.length === 0) {
+                    const row = tbody.insertRow();
+                    const cell = row.insertCell();
+                    cell.colSpan = 3;
+                    cell.textContent = 'No logs available';
+                    cell.style.textAlign = 'center';
+                    return;
+                }
+
+                logs.reverse().forEach(log => {
+                    const row = tbody.insertRow();
+                    
+                    const timeCell = row.insertCell();
+                    timeCell.textContent = formatTime(log.timestamp);
+                    
+                    const eventCell = row.insertCell();
+                    eventCell.textContent = log.event;
+                    
+                    const detailsCell = row.insertCell();
+                    detailsCell.innerHTML = formatLogData(log.data);
+                });
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                const tbody = document.querySelector('#logsTable tbody');
+                tbody.innerHTML = '';
+                const row = tbody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 3;
+                cell.textContent = `Error: ${error.message}`;
+                cell.style.textAlign = 'center';
+                cell.style.color = 'red';
+            }
+        }
+
+        // Автоматическое обновление логов каждые 5 секунд
+        setInterval(refreshLogs, 5000);
+
+        // Начальная загрузка логов
+        refreshLogs();
+    </script>
+</body>
+</html>

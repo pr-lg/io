@@ -1,0 +1,13 @@
+{
+  "name": "websocket-log",
+  "version": "1.0.0",
+  "description": "WebSocket server with event logging",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "socket.io": "4.7.2",
+    "express": "4.18.2"
+  }
+}
