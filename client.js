@@ -116,7 +116,7 @@ process.on('SIGINT', () => {
     process.exit();
 });
 
-// Отправка тестового сообщения каждые 5 минут
+// Отправка тестового сообщения каждые 10 секунд
 setInterval(() => {
     if (socket.connected) {
         const message = `Test message from ${clientId} at ${new Date().toISOString()}`;
@@ -127,4 +127,4 @@ setInterval(() => {
             message 
         });
     }
-}, 5 * 60 * 1000); // 5 минут в миллисекундах
+}, 10 * 1000); // 10 seconds in milliseconds
